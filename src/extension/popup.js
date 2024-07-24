@@ -3,6 +3,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeTab = tabs[0];
     let tabId = activeTab.id;
 
+    if (activeTab.url.startsWith('chrome://') || activeTab.url.startsWith('chrome-extension://')) {
+      console.log("Cannot access a chrome:// URL");
+      return;
+    }
+
     chrome.scripting.executeScript({
       target: { tabId: tabId },
       func: () => document.title
@@ -23,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
 
 async function fetchStoreRating(storeQuery) {
   const response = await fetch(`http://localhost:8000/get_ratings?query=${encodeURIComponent(storeQuery)}`);
@@ -113,6 +119,22 @@ async function searchProduct() {
           }
         }
       }
+      else if (link.startsWith("https://www.anakshop")) {
+        store_name = "ענק המחשבים";
+        store_logo = "https://d3m9l0v76dty0.cloudfront.net/system/logos/3608/original/4ab31cfa2989f80ace02636ebc3916ac.png";
+        if (pagemap.offer) {
+          for (const offer of pagemap.offer) {
+            price = offer.price + offer.pricecurrency;
+            if (price) break;
+          }
+        }
+        if (pagemap.metatags) {
+          for (const metatag of pagemap.metatags) {
+            image_url = metatag["og:image"];
+            if (image_url) break;
+          }
+        }
+      }
       if (price == null || image_url == null) {
         return null;
       }
@@ -120,25 +142,29 @@ async function searchProduct() {
     }
 
     try {
-      const [kspRating, payngoRating] = await Promise.all([
-        fetchStoreRating("ksp ביקורות"),
-        fetchStoreRating("מחסני חשמל ביקורות")
+      const [kspRating, payngoRating, anakshopRating] = await Promise.all([
+        fetchStoreRating("ksp"),
+        fetchStoreRating("מחסני חשמל"),
+        fetchStoreRating("ענק המחשבים")
       ]);
 
       const ratingMap = {
         "KSP": kspRating,
-        "מחסני חשמל": payngoRating
+        "מחסני חשמל": payngoRating,
+        "ענק המחשבים": anakshopRating
       };
 
       const results = await Promise.all([
         googleProductSearch(product, "ksp.co.il"),
-        googleProductSearch(product, "www.payngo.co.il", "תיאור המוצר,תיאור מוצר")
+        googleProductSearch(product, "www.payngo.co.il", "תיאור המוצר,תיאור מוצר"),
+        googleProductSearch(product, "www.anakshop.co.il/items/*")
       ]);
 
-      const [productsKsp, productsPayngo] = results;
+      const [productsKsp, productsPayngo, productsAnakshop] = results;
       const itemsKsp = productsKsp.items || [];
       const itemsPayngo = productsPayngo.items || [];
-      const items = [...itemsKsp, ...itemsPayngo];
+      const itemsAnakshop = productsAnakshop.items || [];
+      const items = [...itemsKsp, ...itemsPayngo, ...itemsAnakshop];
 
       const extractedData = items
           .map(item => extractProductInfo(item))
@@ -151,7 +177,8 @@ async function searchProduct() {
       const jsonResults = encodeURIComponent(JSON.stringify(extractedData));
       const newTabUrl = `results.html?results=${jsonResults}`;
       chrome.tabs.create({ url: newTabUrl });
-    } catch (error) {
+    }
+    catch (error) {
       console.error('Error:', error);
     }
   }
