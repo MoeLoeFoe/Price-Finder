@@ -66,7 +66,7 @@ async function searchProduct() {
 
     function extractProductInfo(item) {
       const pagemap = item.pagemap || {};
-      const title = item.title;
+      let title = item.title;
       const link = item.link;
       let price = null;
       let image_url = null;
@@ -93,9 +93,12 @@ async function searchProduct() {
           }
         }
         if (pagemap.product) {
-          for (const product of pagemap.product) {
-            image_url = product.image;
-            if (image_url) break;
+          for (const product_p of pagemap.product) {
+            if (product_p.image && product_p.name) {
+              image_url = product_p.image;
+              title = product_p.name;
+              break;
+            }
           }
         }
       } else if (link.startsWith("https://www.payngo")) {
@@ -135,6 +138,30 @@ async function searchProduct() {
           }
         }
       }
+      else if (link.startsWith("https://www.semicom")) {
+        store_name = "Semicom";
+        store_logo = "https://www.semicom.co.il/static/version1720584178/frontend/Betanet/semicom/he_IL/images/logo.svg";
+        if (pagemap.offer) {
+          for (const offer of pagemap.offer) {
+            price = offer.price + offer.pricecurrency;
+            if (price) break;
+          }
+        }
+        if (pagemap.metatags) {
+          for (const metatag of pagemap.metatags) {
+            image_url = metatag["og:image"];
+            if (image_url) break;
+          }
+        }
+        if (pagemap.product) {
+          for (const product_p of pagemap.product) {
+            if (product_p.name) {
+              title = product_p.name;
+              break;
+            }
+          }
+        }
+      }
       if (price == null || image_url == null) {
         return null;
       }
@@ -142,29 +169,33 @@ async function searchProduct() {
     }
 
     try {
-      const [kspRating, payngoRating, anakshopRating] = await Promise.all([
+      const [kspRating, payngoRating, anakshopRating, semicomRating] = await Promise.all([
         fetchStoreRating("ksp"),
         fetchStoreRating("מחסני חשמל"),
-        fetchStoreRating("ענק המחשבים")
+        fetchStoreRating("ענק המחשבים"),
+        fetchStoreRating("Semicom")
       ]);
 
       const ratingMap = {
         "KSP": kspRating,
         "מחסני חשמל": payngoRating,
-        "ענק המחשבים": anakshopRating
+        "ענק המחשבים": anakshopRating,
+        "Semicom": semicomRating
       };
 
       const results = await Promise.all([
         googleProductSearch(product, "ksp.co.il"),
         googleProductSearch(product, "www.payngo.co.il", "תיאור המוצר,תיאור מוצר"),
-        googleProductSearch(product, "www.anakshop.co.il/items/*")
+        googleProductSearch(product, "www.anakshop.co.il/items/*"),
+        googleProductSearch(product, "www.semicom.co.il/*-*")
       ]);
 
-      const [productsKsp, productsPayngo, productsAnakshop] = results;
+      const [productsKsp, productsPayngo, productsAnakshop, productsSemicom] = results;
       const itemsKsp = productsKsp.items || [];
       const itemsPayngo = productsPayngo.items || [];
       const itemsAnakshop = productsAnakshop.items || [];
-      const items = [...itemsKsp, ...itemsPayngo, ...itemsAnakshop];
+      const itemsSemicom = productsSemicom.items || [];
+      const items = [...itemsKsp, ...itemsPayngo, ...itemsAnakshop, ...itemsSemicom];
 
       const extractedData = items
           .map(item => extractProductInfo(item))
