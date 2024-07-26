@@ -84,14 +84,14 @@ async function fetchPriceFromHtml(link, store) {
         const htmlText = await response.text();
         const parser = new DOMParser();
         const doc = parser.parseFromString(htmlText, 'text/html');
+        const suffix = " ₪";
 
         if (store === "Ivory") {
             const priceElement = doc.querySelector('span.print-actual-price');
-            const currencyElement = doc.querySelector('span.shekel-sign-rep');
-            if (priceElement && currencyElement) {
+            if (priceElement) {
                 const priceText = priceElement.textContent.trim();
-                const currencyText = currencyElement.textContent.trim();
-                return `${priceText} ${currencyText}`;
+                const currencyText = "ILS";
+                return `${priceText}${currencyText}`;
             }
             return null;
         }
@@ -102,7 +102,11 @@ async function fetchPriceFromHtml(link, store) {
                 const priceText = priceElement.textContent.trim();
                 const priceMatch = priceText.match(/(\d[\d,.]*)\s*(₪)/);
                 if (priceMatch) {
-                    return priceMatch[0];
+                    let price = priceMatch[0];
+                    if (price.endsWith(suffix)) {
+                        price = price.slice(0, -suffix.length) + "ILS";
+                    }
+                    return price;
                 }
             }
             return null;
@@ -312,7 +316,17 @@ async function searchProduct() {
             }));
 
             const filteredData = extractedData.filter(item => item !== null); // Filter out null values
-            const jsonResults = encodeURIComponent(JSON.stringify(filteredData));
+            const transformedResults = filteredData.map(item => ({
+                productName: item[0],
+                link: item[1],
+                price: item[2],
+                image: item[3],
+                storeName: item[4],
+                logo: item[5],
+                rating: item[6]
+            }));
+
+            const jsonResults = encodeURIComponent(JSON.stringify(transformedResults));
             const newTabUrl = `results.html?results=${jsonResults}`;
             chrome.tabs.create({url: newTabUrl});
         } catch (error) {
