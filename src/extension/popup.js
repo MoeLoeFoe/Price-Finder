@@ -51,7 +51,7 @@ async function getProductName(title) {
         });
 
         const data = await response.json();
-        console.log("API response:", data);  // Log the full response
+        console.log("API response:", data);
 
         if (data.choices && data.choices.length > 0) {
             const messageContent = data.choices[0].message?.content;
@@ -78,43 +78,36 @@ async function fetchStoreRating(storeQuery) {
     return await response.json();
 }
 
-async function fetchLastpriceInfo(link) {
+async function fetchPriceFromHtml(link, store) {
     try {
         const response = await fetch(link);
         const htmlText = await response.text();
         const parser = new DOMParser();
         const doc = parser.parseFromString(htmlText, 'text/html');
 
-        const priceElement = doc.querySelector('div.d-inline.bold.lprice');
-        if (priceElement) {
-            const priceText = priceElement.textContent.trim();
-            const priceMatch = priceText.match(/(\d[\d,.]*)\s*(₪)/);
-            if (priceMatch) {
-                return priceMatch[0]; // Return the price with currency
+        if (store === "Ivory") {
+            const priceElement = doc.querySelector('span.print-actual-price');
+            const currencyElement = doc.querySelector('span.shekel-sign-rep');
+            if (priceElement && currencyElement) {
+                const priceText = priceElement.textContent.trim();
+                const currencyText = currencyElement.textContent.trim();
+                return `${priceText} ${currencyText}`;
             }
+            return null;
         }
-        return null;
-    } catch (error) {
-        console.error('Error fetching Lastprice info:', error);
-        return null;
-    }
-}
 
-async function fetchIvoryPriceInfo(link) {
-    try {
-        const response = await fetch(link);
-        const htmlText = await response.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(htmlText, 'text/html');
-
-        const priceElement = doc.querySelector('span.print-actual-price');
-        const currencyElement = doc.querySelector('span.shekel-sign-rep');
-        if (priceElement && currencyElement) {
-            const priceText = priceElement.textContent.trim();
-            const currencyText = currencyElement.textContent.trim();
-            return `${priceText} ${currencyText}`;
+        else if (store === "Lastprice") {
+            const priceElement = doc.querySelector('div.d-inline.bold.lprice');
+            if (priceElement) {
+                const priceText = priceElement.textContent.trim();
+                const priceMatch = priceText.match(/(\d[\d,.]*)\s*(₪)/);
+                if (priceMatch) {
+                    return priceMatch[0];
+                }
+            }
+            return null;
         }
-        return null;
+
     } catch (error) {
         console.error('Error fetching Ivory price info:', error);
         return null;
@@ -245,17 +238,18 @@ async function searchProduct() {
             } else if (link.startsWith("https://www.lastprice")) {
                 store_name = "Lastprice";
                 store_logo = "https://www.lastprice.co.il/img/logo.svg";
-                price = await fetchLastpriceInfo(link);
+                price = await fetchPriceFromHtml(link, "Lastprice");
                 console.log("Price:", price);
                 if (pagemap.metatags) {
                     const metatag = pagemap.metatags[0];
                     image_url = metatag["og:image"];
                     title = metatag['og:title'];
                 }
+
             } else if (link.startsWith("https://www.ivory")) {
                 store_name = "Ivory";
                 store_logo = "https://www.ivory.co.il/files/misc/1679917728s28Sg.svg";
-                price = await fetchIvoryPriceInfo(link);
+                price = await fetchPriceFromHtml(link, "Ivory");
                 console.log("Price:", price);
                 if (pagemap.metatags) {
                     const metatag = pagemap.metatags[0];
