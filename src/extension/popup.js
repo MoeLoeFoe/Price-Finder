@@ -14,8 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, async (results) => {
             if (results && results[0]) {
                 let pageTitle = results[0].result;
-                let productName = await getProductName(pageTitle);
-                document.getElementById('productInput').value = productName;
+                document.getElementById('productInput').value = await getProductName(pageTitle);
             }
         });
     });
@@ -94,9 +93,7 @@ async function fetchPriceFromHtml(link, store) {
                 return `${priceText}${currencyText}`;
             }
             return null;
-        }
-
-        else if (store === "Lastprice") {
+        } else if (store === "Lastprice") {
             const priceElement = doc.querySelector('div.d-inline.bold.lprice');
             if (priceElement) {
                 const priceText = priceElement.textContent.trim();
@@ -129,11 +126,52 @@ function setButtonLoadingState(isLoading) {
     }
 }
 
+function getInfoFromPagemap(pagemap, site) {
+    let price = null;
+    let image_url = null;
+    let productName = null;
+    let currency = null;
+
+    if (site === "Mashbir" || site === "חשמל נטו" || site === "אמירים הפצה") {
+        if (pagemap.metatags) {
+            const metatag = pagemap.metatags[0];
+            price = metatag['product:price:amount'];
+            currency = metatag['product:price:currency'];
+            if (!price && !currency) {
+                price = metatag['og:price:amount'];
+                currency = metatag['og:price:currency'];
+            }
+            image_url = metatag["og:image"];
+            productName = metatag["og:title"];
+        }
+        
+    } else if (site === "שופרסל" || site === "KSP") {
+        if (pagemap.offer) {
+            const offer = pagemap.offer[0];
+            if (offer.availability === "https://schema.org/OutOfStock") {
+                return [null, null, null];
+            }
+            price = offer.price + offer.pricecurrency;
+        }
+        if (pagemap.product) {
+            const product_p = pagemap.product[0];
+            image_url = product_p.image;
+            productName = product_p.name;
+        }
+    }
+
+    if (price && currency) {
+        price = price + currency;
+    }
+    return [productName, price, image_url];
+}
+
 async function searchProduct() {
     setButtonLoadingState(true);  // Set button to loading state
     const product = document.getElementById('productInput').value;
     if (product) {
-        const API_KEY = "AIzaSyDaQTMMKeI_vuknRVOXvbDmuFdOenz1cSA";
+        const API_KEY = "AIzaSyCuLbEgu2BkGnKvcOlGL7_vfms0jq5WQlk";
+        const API_KEY2 = "AIzaSyCuLbEgu2BkGnKvcOlGL7_vfms0jq5WQlk";
         //AIzaSyBE9yzCgdWJEFtaiQhYnpKIzY9wR2gmCM8
         //AIzaSyDaQTMMKeI_vuknRVOXvbDmuFdOenz1cSA
         //AIzaSyCuLbEgu2BkGnKvcOlGL7_vfms0jq5WQlk
@@ -159,8 +197,8 @@ async function searchProduct() {
 
         async function extractProductInfo(item) {
             const pagemap = item.pagemap || {};
-            let title = item.title;
             const link = item.link;
+            let title = null;
             let price = null;
             let image_url = null;
             let store_logo = null;
@@ -169,26 +207,14 @@ async function searchProduct() {
             if (link.startsWith("https://ksp")) {
                 store_name = "KSP";
                 store_logo = "https://ksp.co.il/meNew/img/logos/KSP.png";
-                if (pagemap.offer) {
-                    const offer = pagemap.offer[0];
-                    if (offer.availability === "https://schema.org/OutOfStock") {
-                        return null;
-                    }
-                    price = offer.price + offer.pricecurrency;
-                }
+                [title, price, image_url] = getInfoFromPagemap(pagemap, "KSP");
                 if (pagemap.metatags) {
                     const metatag = pagemap.metatags[0];
                     if (metatag['og:description'] && metatag['og:description'].includes('אזל מהמלאי')) {
                         return null;
                     }
                 }
-                if (pagemap.product) {
-                    const product_p = pagemap.product[0];
-                    if (product_p.image && product_p.name) {
-                        image_url = product_p.image;
-                        title = product_p.name;
-                    }
-                }
+
             } else if (link.startsWith("https://www.payngo")) {
                 store_name = "מחסני חשמל";
                 store_logo = "https://d2d22nphq0yz8t.cloudfront.net/6cbcadef-96e0-49e9-b3bd-9921afe362db/www.payngo.co.il/media/logo/stores/1/logo.png";
@@ -239,11 +265,11 @@ async function searchProduct() {
                         title = product_p.name;
                     }
                 }
+
             } else if (link.startsWith("https://www.lastprice")) {
                 store_name = "Lastprice";
                 store_logo = "https://www.lastprice.co.il/img/logo.svg";
                 price = await fetchPriceFromHtml(link, "Lastprice");
-                console.log("Price:", price);
                 if (pagemap.metatags) {
                     const metatag = pagemap.metatags[0];
                     image_url = metatag["og:image"];
@@ -260,22 +286,49 @@ async function searchProduct() {
                     image_url = metatag["og:image"];
                     title = metatag["og:title"];
                 }
+
+            } else if (link.startsWith("https://www.adcs")) {
+                store_name = "אמירים הפצה";
+                store_logo = "https://eadn-wc05-4165754.nxedge.io/cdn/pub/media/logo/default/logo-amirim_2x.png";
+                [title, price, image_url] = getInfoFromPagemap(pagemap, "אמירים הפצה");
+
+            } else if (link.startsWith("https://www.netoneto")) {
+                store_name = "חשמל נטו";
+                store_logo = "https://www.netoneto.co.il/media/logo/stores/1/dc796d22-6da7-498e-97f0-44e44ee511c6.jpeg";
+                [title, price, image_url] = getInfoFromPagemap(pagemap, "חשמל נטו");
+
+            } else if (link.startsWith("https://www.shufersal")) {
+                store_name = "שופרסל";
+                store_logo = "https://go5.co.il/storage/22/conversions/shufersal-online-logo-image.png";
+                [title, price, image_url] = getInfoFromPagemap(pagemap, "שופרסל");
+
+            } else if (link.startsWith("https://365mashbir")) {
+                store_name = "Mashbir";
+                store_logo = "https://365mashbir.co.il/cdn/shop/files/Artboard_1_copy_2.jpg";
+                [title, price, image_url] = getInfoFromPagemap(pagemap, "Mashbir");
             }
 
-            if (price == null || image_url == null) {
+            if (title === null) {
+                title = item.title;
+            }
+            if (price === null || image_url === null) {
                 return null;
             }
             return [title, link, price, image_url, store_name, store_logo];
         }
 
         try {
-            const [kspRating, payngoRating, anakshopRating, semicomRating, LastpriceRating, ivoryRating] = await Promise.all([
+            const [kspRating, payngoRating, anakshopRating, semicomRating, LastpriceRating, ivoryRating, amirimRating, hashmalnetoRating, shufersalRating, mashbirRating] = await Promise.all([
                 fetchStoreRating("ksp"),
                 fetchStoreRating("מחסני חשמל"),
                 fetchStoreRating("ענק המחשבים"),
                 fetchStoreRating("Semicom"),
                 fetchStoreRating("Lastprice"),
-                fetchStoreRating("ivory")
+                fetchStoreRating("ivory"),
+                fetchStoreRating("אמירים הפצה"),
+                fetchStoreRating("חשמל נטו"),
+                fetchStoreRating("שופרסל"),
+                fetchStoreRating("Mashbir")
             ]);
 
             const ratingMap = {
@@ -284,7 +337,11 @@ async function searchProduct() {
                 "ענק המחשבים": anakshopRating,
                 "Semicom": semicomRating,
                 "Lastprice": LastpriceRating,
-                "Ivory": ivoryRating
+                "Ivory": ivoryRating,
+                "אמירים הפצה": amirimRating,
+                "חשמל נטו": hashmalnetoRating,
+                "שופרסל": shufersalRating,
+                "Mashbir": mashbirRating
             };
 
             const results = await Promise.all([
@@ -293,17 +350,25 @@ async function searchProduct() {
                 googleProductSearch(product, "www.anakshop.co.il/items/*"),
                 googleProductSearch(product, "www.semicom.co.il/*-*"),
                 googleProductSearch(product, "www.lastprice.co.il/p/*"),
-                googleProductSearch(product, "www.ivory.co.il/catalog.php?id=*")
+                googleProductSearch(product, "www.ivory.co.il/catalog.php?id=*"),
+                googleProductSearch(product, "www.adcs.co.il/"),
+                googleProductSearch(product, "www.netoneto.co.il/product/"),
+                googleProductSearch(product, "www.shufersal.co.il/"),
+                googleProductSearch(product, "365mashbir.co.il")
             ]);
 
-            const [productsKsp, productsPayngo, productsAnakshop, productsSemicom, productsLastprice, productsIvory] = results;
+            const [productsKsp, productsPayngo, productsAnakshop, productsSemicom, productsLastprice, productsIvory, productsAmirim, productHashmalneto, productsShufersal, productsMashbir] = results;
             const itemsKsp = productsKsp.items || [];
             const itemsPayngo = productsPayngo.items || [];
             const itemsAnakshop = productsAnakshop.items || [];
             const itemsSemicom = productsSemicom.items || [];
             const itemsLastprice = productsLastprice.items || [];
             const itemsIvory = productsIvory.items || [];
-            const items = [...itemsKsp, ...itemsPayngo, ...itemsAnakshop, ...itemsSemicom, ...itemsLastprice, ...itemsIvory];
+            const itemsAmirim = productsAmirim.items || [];
+            const itemsHashmalneto = productHashmalneto.items || [];
+            const itemsShufersal = productsShufersal.items || [];
+            const itemsMashbir = productsMashbir.items || [];
+            const items = [...itemsKsp, ...itemsPayngo, ...itemsAnakshop, ...itemsSemicom, ...itemsLastprice, ...itemsIvory, ...itemsAmirim, ...itemsHashmalneto, ...itemsShufersal, ...itemsMashbir];
 
             const extractedData = await Promise.all(items.map(async item => {
                 const productInfo = await extractProductInfo(item);
