@@ -29,6 +29,54 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
+async function isProductRelevant(productLink, productName) {
+    try {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer sk-proj-pC1w17SsGCGxNsQD2vlyT3BlbkFJurphcYHzZDzxraTy7Dzg`
+            },
+            body: JSON.stringify({
+                model: "gpt-4",
+                messages: [
+                    {
+                        role: "user",
+                        content: `Is the product described in the following link relevant to my search?, "${productLink}" I am searching for "${productName}". Provide a simple "yes" or "no" answer. For example, if I'm looking for an iPhone, I want you to answer "yes" only if it is an iPhone, not a case for iPhone or anything like that.`
+                    }
+                ],
+                max_tokens: 50
+            })
+        });
+
+        const data = await response.json();
+        const messageContent = data.choices[0].message.content.trim().toLowerCase();
+        console.log("Product link:", productLink, "Response:", messageContent);
+        return messageContent === "yes";
+    } catch (error) {
+        console.error("Error querying OpenAI API:", error);
+        return false;
+    }
+}
+
+async function filterRelevantProducts(extractedData, product) {
+    const filteredDataPromises = extractedData.map(async item => {
+        if (item !== null) {
+            const isRelevant = await isProductRelevant(item[1], product);
+            console.log("Checking relevance for item:", item[1], "isRelevant:", isRelevant);
+            if (isRelevant) {
+                return item;
+            }
+        }
+        return null;
+    });
+
+    const filteredData = await Promise.all(filteredDataPromises);
+
+    // Remove null values
+    return filteredData.filter(item => item !== null);
+}
+
 async function getProductName(title) {
     try {
         const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -170,7 +218,8 @@ async function searchProduct() {
     setButtonLoadingState(true);  // Set button to loading state
     const product = document.getElementById('productInput').value;
     if (product) {
-        const API_KEY = "AIzaSyBL9BKBBR5l9vl4PlH6UQ0mu26nYhtQNLY";
+        // const API_KEY = "AIzaSyBL9BKBBR5l9vl4PlH6UQ0mu26nYhtQNLY";
+        const API_KEY = "AIzaSyASWi3gBfUE9X9aMPFl7a8Li9e0INTVKB8";
         const API_KEY2 = "AIzaSyCuLbEgu2BkGnKvcOlGL7_vfms0jq5WQlk";
         //AIzaSyBE9yzCgdWJEFtaiQhYnpKIzY9wR2gmCM8
         //AIzaSyDaQTMMKeI_vuknRVOXvbDmuFdOenz1cSA
@@ -380,7 +429,8 @@ async function searchProduct() {
                 }
             }));
 
-            const filteredData = extractedData.filter(item => item !== null); // Filter out null values
+            // const filteredData = extractedData.filter(item => item !== null);
+            const filteredData = await filterRelevantProducts(extractedData, product);
             const transformedResults = filteredData.map(item => ({
                 productName: item[0],
                 link: item[1],
