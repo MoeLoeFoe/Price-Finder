@@ -1,3 +1,5 @@
+download Node js from the link https://nodejs.org/en then follow the steps below to run the website:
+
 first: in cmd go to the file directory usind cd
 
 second: run npm install 
