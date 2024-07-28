@@ -174,29 +174,24 @@ function App() {
     const minRating = Math.min(...ratings);
     const maxRating = Math.max(...ratings);
 
-    const sortedProducts = data.sort((a, b) => {
+    const sortedProducts = [...data].sort((a, b) => {
       const priceA = parseFloat(a.price.replace(/[^\d.-]/g, ''));
       const priceB = parseFloat(b.price.replace(/[^\d.-]/g, ''));
       const rateA = parseFloat(a.rating);
       const rateB = parseFloat(b.rating);
+
       if (sortPreference === 'price') {
-        if (priceA !== priceB) {
-          return priceA - priceB;
-        } else {
-          return rateB - rateA;
-        }
+        return priceA - priceB;
       } else if (sortPreference === 'rating') {
-        if (rateA !== rateB) {
-          return rateB - rateA;
-        } else {
-          return priceA - priceB;
-        }
-      } else {
+        return rateB - rateA;
+      } else if (sortPreference === 'combined') {
         const scoreA = calculateCombinedScore(priceA, rateA, minPrice, maxPrice, minRating, maxRating);
         const scoreB = calculateCombinedScore(priceB, rateB, minPrice, maxPrice, minRating, maxRating);
         return scoreB - scoreA;
       }
+      return 0; // default return if no sorting preference matches
     });
+
     setProducts(sortedProducts);
   }, [sortPreference]);
 
@@ -210,8 +205,8 @@ function App() {
       </Header>
       <Main>
       <div>
-          <SortButton onClick={() => setSortPreference('rating')}>Sort by Price</SortButton>
-          <SortButton onClick={() => setSortPreference('price')}>Sort by Rating</SortButton>
+          <SortButton onClick={() => setSortPreference('price')}>Sort by Price</SortButton>
+          <SortButton onClick={() => setSortPreference('rating')}>Sort by Rating</SortButton>
           <SortButton onClick={() => setSortPreference('combined')}>Sort by Combined Score</SortButton>
         </div>
         <section id="search-results">
