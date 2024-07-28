@@ -112,19 +112,57 @@ const StoreButton = styled.button`
     background-color: #0056b3;
   }
 `;
+const SortButton = styled.button`
+  background-color: #ffffff;
+  color: #6666ff;
+  border: 2px solid #6666ff;
+  padding: 10px 20px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 4px 2px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background-color 0.3s ease;
+
+  &:hover {
+    background-color: #6666ff;
+    color: white;
+  }
+`;
 
 function App() {
   const [products, setProducts] = useState([]);
+  const [sortPreference, setSortPreference] = useState('price');
 
   useEffect(() => {
-    // Parse prices and sort in descending order
     const sortedProducts = data.sort((a, b) => {
-      const priceA = parseFloat(a[2].replace(/[^\d.-]/g, ''));
-      const priceB = parseFloat(b[2].replace(/[^\d.-]/g, ''));
-      return priceA - priceB;
+      const priceA = parseFloat(a.price.replace(/[^\d.-]/g, ''));
+      const priceB = parseFloat(b.price.replace(/[^\d.-]/g, ''));
+
+      if (sortPreference === 'price') {
+        if (priceA !== priceB) {
+          return priceA - priceB;
+        } else {
+          const rateA = parseFloat(a.rating);
+          const rateB = parseFloat(b.rating);
+          return rateA - rateB;
+        }
+      } else {
+        const rateA = parseFloat(a.rating);
+        const rateB = parseFloat(b.rating);
+
+        if (rateA !== rateB) {
+          return rateA - rateB;
+        } else {
+          return priceA - priceB;
+        }
+      }
     });
+
     setProducts(sortedProducts);
-  }, []);
+  }, [sortPreference]);
 
   return (
     <AppWrapper>
@@ -135,6 +173,10 @@ function App() {
         </TitleWrapper>
       </Header>
       <Main>
+      <div>
+          <SortButton onClick={() => setSortPreference('price')}>Sort by Price</SortButton>
+          <SortButton onClick={() => setSortPreference('rating')}>Sort by Rating</SortButton>
+        </div>
         <section id="search-results">
           <Table>
             <thead>
