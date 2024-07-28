@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-async function isProductRelevant(productLink, productName) {
+async function isProductRelevant(productName, searchedTerm) {
     try {
         const response = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
@@ -38,11 +38,11 @@ async function isProductRelevant(productLink, productName) {
                 "Authorization": `Bearer sk-proj-pC1w17SsGCGxNsQD2vlyT3BlbkFJurphcYHzZDzxraTy7Dzg`
             },
             body: JSON.stringify({
-                model: "gpt-4",
+                model: "gpt-4o-mini",
                 messages: [
                     {
                         role: "user",
-                        content: `Is the product described in the following link relevant to my search?, "${productLink}" I am searching for "${productName}". Provide a simple "yes" or "no" answer. For example, if I'm looking for an iPhone, I want you to answer "yes" only if it is an iPhone, not a case for iPhone or anything like that.`
+                        content: `Is the product described in "${productName}" relevant to my search?, I am searching for "${searchedTerm}". Provide a simple "yes" or "no" answer. For example, if I'm looking for an iPhone, I want you to answer "yes" only if it is an iPhone, not a case for iPhone or anything like that.`
                     }
                 ],
                 max_tokens: 50
@@ -51,7 +51,7 @@ async function isProductRelevant(productLink, productName) {
 
         const data = await response.json();
         const messageContent = data.choices[0].message.content.trim().toLowerCase();
-        console.log("Product link:", productLink, "Response:", messageContent);
+        console.log("Product name:", productName, "Response:", messageContent);
         return messageContent === "yes";
     } catch (error) {
         console.error("Error querying OpenAI API:", error);
@@ -62,8 +62,8 @@ async function isProductRelevant(productLink, productName) {
 async function filterRelevantProducts(extractedData, product) {
     const filteredDataPromises = extractedData.map(async item => {
         if (item !== null) {
-            const isRelevant = await isProductRelevant(item[1], product);
-            console.log("Checking relevance for item:", item[1], "isRelevant:", isRelevant);
+            const isRelevant = await isProductRelevant(item[0], product);
+            console.log("Checking relevance for item:", item[0], "isRelevant:", isRelevant);
             if (isRelevant) {
                 return item;
             }
@@ -485,4 +485,3 @@ async function searchProduct() {
         setButtonLoadingState(false);  // Reset button state if no product is entered
     }
 }
-
