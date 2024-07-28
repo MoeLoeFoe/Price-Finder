@@ -1,3 +1,4 @@
+// App.js
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import data from './data.json';
@@ -204,7 +205,7 @@ function App() {
         </TitleWrapper>
       </Header>
       <Main>
-      <div>
+        <div>
           <SortButton onClick={() => setSortPreference('price')}>Sort by Price</SortButton>
           <SortButton onClick={() => setSortPreference('rating')}>Sort by Rating</SortButton>
           <SortButton onClick={() => setSortPreference('combined')}>Sort by Combined Score</SortButton>
@@ -229,9 +230,7 @@ function App() {
                   <Td>
                     {item.image.endsWith('.svg') ? (
                       <SvgContainer>
-                        <SvgObject type="image/svg+xml" data={item.image}>
-
-                        </SvgObject>
+                        <SvgObject type="image/svg+xml" data={item.image}></SvgObject>
                       </SvgContainer>
                     ) : (
                       <Image src={item.image} alt={item.productName} />
@@ -244,8 +243,7 @@ function App() {
                     {item.logo && (
                       item.logo.endsWith('.svg') ? (
                         <SvgContainer>
-                          <SvgObject type="image/svg+xml" data={item.logo}>
-                          </SvgObject>
+                          <SvgObject type="image/svg+xml" data={item.logo}></SvgObject>
                         </SvgContainer>
                       ) : (
                         <Image src={item.logo} alt={item.storeName} />
@@ -256,7 +254,7 @@ function App() {
                     <StarRating rating={item.rating} /> 
                   </Td>
                   <Store>
-                    <StoreButton onClick={() => window.location.href = item.storeLink}>
+                    <StoreButton onClick={() => window.open(item.link, '_blank')}>
                       Go to Store
                     </StoreButton>
                   </Store>
