@@ -150,11 +150,30 @@ const formatPrice = (price) => {
   return price.replace('ILS', '₪');
 };
 
+const normalize = (value, min, max) => {
+  return (value - min) / (max - min);
+};
+
+const calculateCombinedScore = (price, rating, minPrice, maxPrice, minRating, maxRating) => {
+  const normalizedPrice = normalize(price, minPrice, maxPrice);
+  const normalizedRating = normalize(rating, minRating, maxRating);
+  // Example: weighted sum (you can adjust the weights as needed)
+  return normalizedRating - normalizedPrice;
+};
+
+
 function App() {
   const [products, setProducts] = useState([]);
   const [sortPreference, setSortPreference] = useState('price');
 
   useEffect(() => {
+    const prices = data.map(item => parseFloat(item.price.replace(/[^\d.-]/g, '')));
+    const ratings = data.map(item => parseFloat(item.rating));
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+    const minRating = Math.min(...ratings);
+    const maxRating = Math.max(...ratings);
+
     const sortedProducts = data.sort((a, b) => {
       const priceA = parseFloat(a.price.replace(/[^\d.-]/g, ''));
       const priceB = parseFloat(b.price.replace(/[^\d.-]/g, ''));
@@ -166,12 +185,16 @@ function App() {
         } else {
           return rateB - rateA;
         }
-      } else {
+      } else if (sortPreference === 'rating') {
         if (rateA !== rateB) {
           return rateB - rateA;
         } else {
           return priceA - priceB;
         }
+      } else {
+        const scoreA = calculateCombinedScore(priceA, rateA, minPrice, maxPrice, minRating, maxRating);
+        const scoreB = calculateCombinedScore(priceB, rateB, minPrice, maxPrice, minRating, maxRating);
+        return scoreB - scoreA;
       }
     });
     setProducts(sortedProducts);
@@ -189,6 +212,7 @@ function App() {
       <div>
           <SortButton onClick={() => setSortPreference('rating')}>Sort by Price</SortButton>
           <SortButton onClick={() => setSortPreference('price')}>Sort by Rating</SortButton>
+          <SortButton onClick={() => setSortPreference('combined')}>Sort by Combined Score</SortButton>
         </div>
         <section id="search-results">
           <Table>
