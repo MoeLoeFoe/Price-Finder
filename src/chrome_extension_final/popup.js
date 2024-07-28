@@ -117,12 +117,40 @@ async function getProductName(title) {
     }
 }
 
+function setButtonLoadingState(isLoading) {
+    const searchButton = document.getElementById('searchButton');
+    if (isLoading) {
+        searchButton.textContent = 'Loading results...';
+        searchButton.disabled = true;
+    } else {
+        searchButton.textContent = 'Search';
+        searchButton.disabled = false;
+    }
+}
+
 async function fetchStoreRating(storeQuery) {
     const response = await fetch(`http://localhost:8000/get_ratings?query=${encodeURIComponent(storeQuery)}`);
     if (!response.ok) {
         throw new Error(`Failed to fetch ratings for ${storeQuery}`);
     }
     return await response.json();
+}
+
+async function checkAvailability(link, store) {
+    const response = await fetch(link);
+    const htmlText = await response.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlText, 'text/html');
+
+    if (store === "חשמל נטו") {
+        const outOfStockElement = doc.querySelector('div.inventory-stock-info .stock.unavailable span');
+        if (outOfStockElement && outOfStockElement.textContent.includes("אזל מהמלאי")) {
+            return false;
+        }
+        else {
+            return true;
+        }
+    }
 }
 
 async function fetchPriceFromHtml(link, store) {
@@ -134,6 +162,11 @@ async function fetchPriceFromHtml(link, store) {
         const suffix = " ₪";
 
         if (store === "Ivory") {
+            // Check for out-of-stock message
+            const outOfStockElement = doc.querySelector('div#cancelproduct.row.justify-content-center span[style*="font-size:22px;"]');
+            if (outOfStockElement && outOfStockElement.textContent.includes("מוצר זה לא זמין")) {
+                return null;
+            }
             const priceElement = doc.querySelector('span.print-actual-price');
             if (priceElement) {
                 const priceText = priceElement.textContent.trim();
@@ -163,17 +196,6 @@ async function fetchPriceFromHtml(link, store) {
     }
 }
 
-function setButtonLoadingState(isLoading) {
-    const searchButton = document.getElementById('searchButton');
-    if (isLoading) {
-        searchButton.textContent = 'Loading results...';
-        searchButton.disabled = true;
-    } else {
-        searchButton.textContent = 'Search';
-        searchButton.disabled = false;
-    }
-}
-
 function getInfoFromPagemap(pagemap, site) {
     let price = null;
     let image_url = null;
@@ -192,7 +214,12 @@ function getInfoFromPagemap(pagemap, site) {
             image_url = metatag["og:image"];
             productName = metatag["og:title"];
         }
-        
+        if (site === "אמירים הפצה") {
+            if (pagemap.thumbnail) {
+                image_url = pagemap.thumbnail[0]["src"];
+            }
+        }
+
     } else if (site === "שופרסל" || site === "KSP") {
         if (pagemap.offer) {
             const offer = pagemap.offer[0];
@@ -218,9 +245,7 @@ async function searchProduct() {
     setButtonLoadingState(true);  // Set button to loading state
     const product = document.getElementById('productInput').value;
     if (product) {
-        // const API_KEY = "AIzaSyBL9BKBBR5l9vl4PlH6UQ0mu26nYhtQNLY";
         const API_KEY = "AIzaSyASWi3gBfUE9X9aMPFl7a8Li9e0INTVKB8";
-        const API_KEY2 = "AIzaSyCuLbEgu2BkGnKvcOlGL7_vfms0jq5WQlk";
         //AIzaSyBE9yzCgdWJEFtaiQhYnpKIzY9wR2gmCM8
         //AIzaSyDaQTMMKeI_vuknRVOXvbDmuFdOenz1cSA
         //AIzaSyCuLbEgu2BkGnKvcOlGL7_vfms0jq5WQlk
@@ -317,7 +342,7 @@ async function searchProduct() {
 
             } else if (link.startsWith("https://www.lastprice")) {
                 store_name = "Lastprice";
-                store_logo = "https://www.lastprice.co.il/img/logo.svg";
+                store_logo = "https://www.jemix.co.il/wp-content/uploads/2020/11/logo_LP300.jpg";
                 price = await fetchPriceFromHtml(link, "Lastprice");
                 if (pagemap.metatags) {
                     const metatag = pagemap.metatags[0];
@@ -338,10 +363,14 @@ async function searchProduct() {
 
             } else if (link.startsWith("https://www.adcs")) {
                 store_name = "אמירים הפצה";
-                store_logo = "https://eadn-wc05-4165754.nxedge.io/cdn/pub/media/logo/default/logo-amirim_2x.png";
+                store_logo = "https://media.licdn.com/dms/image/C4D0BAQFCQkmpr7Ok1A/company-logo_200_200/0/1631315286863?e=2147483647&v=beta&t=YLytMbLhjWexg_88zSD2_5LRqCCIpH-hKPTOXfE7aWw";
                 [title, price, image_url] = getInfoFromPagemap(pagemap, "אמירים הפצה");
 
             } else if (link.startsWith("https://www.netoneto")) {
+                const available = await checkAvailability(link, "חשמל נטו");
+                if (!available) {
+                    return null;
+                }
                 store_name = "חשמל נטו";
                 store_logo = "https://www.netoneto.co.il/media/logo/stores/1/dc796d22-6da7-498e-97f0-44e44ee511c6.jpeg";
                 [title, price, image_url] = getInfoFromPagemap(pagemap, "חשמל נטו");
@@ -357,12 +386,14 @@ async function searchProduct() {
                 [title, price, image_url] = getInfoFromPagemap(pagemap, "Mashbir");
             }
 
-            if (title === null) {
+            if (!title) {
                 title = item.title;
             }
-            if (price === null || image_url === null) {
+
+            if (!price || !image_url) {
                 return null;
             }
+
             return [title, link, price, image_url, store_name, store_logo];
         }
 
@@ -443,7 +474,7 @@ async function searchProduct() {
 
             const jsonResults = JSON.stringify(transformedResults);
             localStorage.setItem('searchResults', jsonResults); // Store results in localStorage
-            chrome.tabs.create({ url: chrome.runtime.getURL('index.html') })
+            chrome.tabs.create({url: chrome.runtime.getURL('index.html')})
 
         } catch (error) {
             console.error('Error:', error);
@@ -454,3 +485,4 @@ async function searchProduct() {
         setButtonLoadingState(false);  // Reset button state if no product is entered
     }
 }
+
