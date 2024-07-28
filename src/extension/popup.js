@@ -391,9 +391,13 @@ async function searchProduct() {
                 rating: item[6]
             }));
 
-            const jsonResults = encodeURIComponent(JSON.stringify(transformedResults));
-            const newTabUrl = `results.html?results=${jsonResults}`;
-            chrome.tabs.create({url: newTabUrl});
+            //const jsonResults = encodeURIComponent(JSON.stringify(transformedResults));
+            //const newTabUrl = `results.html?results=${jsonResults}`;
+            //chrome.tabs.create({url: newTabUrl});
+            
+            const jsonResults = JSON.stringify(transformedResults);
+            localStorage.setItem('searchResults', jsonResults); // Store results in localStorage
+            
         } catch (error) {
             console.error('Error:', error);
         } finally {
