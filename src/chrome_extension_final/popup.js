@@ -29,54 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-async function isProductRelevant(productName, searchedTerm) {
-    try {
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer sk-proj-pC1w17SsGCGxNsQD2vlyT3BlbkFJurphcYHzZDzxraTy7Dzg`
-            },
-            body: JSON.stringify({
-                model: "gpt-4o-mini",
-                messages: [
-                    {
-                        role: "user",
-                        content: `Is the product described in "${productName}" relevant to my search?, I am searching for "${searchedTerm}". Provide a simple "yes" or "no" answer. For example, if I'm looking for an iPhone, I want you to answer "yes" only if it is an iPhone, not a case for iPhone or anything like that.`
-                    }
-                ],
-                max_tokens: 50
-            })
-        });
-
-        const data = await response.json();
-        const messageContent = data.choices[0].message.content.trim().toLowerCase();
-        console.log("Product name:", productName, "Response:", messageContent);
-        return messageContent === "yes";
-    } catch (error) {
-        console.error("Error querying OpenAI API:", error);
-        return false;
-    }
-}
-
-async function filterRelevantProducts(extractedData, product) {
-    const filteredDataPromises = extractedData.map(async item => {
-        if (item !== null) {
-            const isRelevant = await isProductRelevant(item[0], product);
-            console.log("Checking relevance for item:", item[0], "isRelevant:", isRelevant);
-            if (isRelevant) {
-                return item;
-            }
-        }
-        return null;
-    });
-
-    const filteredData = await Promise.all(filteredDataPromises);
-
-    // Remove null values
-    return filteredData.filter(item => item !== null);
-}
-
 async function getProductName(title) {
     try {
         const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -128,6 +80,36 @@ function setButtonLoadingState(isLoading) {
     }
 }
 
+async function isProductRelevant(productName, searchedTerm) {
+    try {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer sk-proj-pC1w17SsGCGxNsQD2vlyT3BlbkFJurphcYHzZDzxraTy7Dzg`
+            },
+            body: JSON.stringify({
+                model: "gpt-4o-mini",
+                messages: [
+                    {
+                        role: "user",
+                        content: `Is the product described in "${productName}" relevant to my search?, I am searching for "${searchedTerm}". Provide a simple "yes" or "no" answer. For example, if I'm looking for an iPhone, I want you to answer "yes" only if it is an iPhone, not a case for iPhone or anything like that.`
+                    }
+                ],
+                max_tokens: 50
+            })
+        });
+
+        const data = await response.json();
+        const messageContent = data.choices[0].message.content.trim().toLowerCase();
+        console.log("Product name:", productName, "Response:", messageContent);
+        return messageContent === "yes";
+    } catch (error) {
+        console.error("Error querying OpenAI API:", error);
+        return false;
+    }
+}
+
 async function fetchStoreRating(storeQuery) {
     const response = await fetch(`http://localhost:8000/get_ratings?query=${encodeURIComponent(storeQuery)}`);
     if (!response.ok) {
@@ -144,12 +126,10 @@ async function checkAvailability(link, store) {
 
     if (store === "חשמל נטו") {
         const outOfStockElement = doc.querySelector('div.inventory-stock-info .stock.unavailable span');
-        if (outOfStockElement && outOfStockElement.textContent.includes("אזל מהמלאי")) {
-            return false;
-        }
-        else {
-            return true;
-        }
+        return !(outOfStockElement && outOfStockElement.textContent.includes("אזל מהמלאי"));
+    } else if (store === "Mashbir") {
+        const outOfStockElement = doc.querySelector('span[class*="אזל מהמלאי"]');
+        return !outOfStockElement;
     }
 }
 
@@ -246,11 +226,6 @@ async function searchProduct() {
     const product = document.getElementById('productInput').value;
     if (product) {
         const API_KEY = "AIzaSyASWi3gBfUE9X9aMPFl7a8Li9e0INTVKB8";
-        //AIzaSyBE9yzCgdWJEFtaiQhYnpKIzY9wR2gmCM8
-        //AIzaSyDaQTMMKeI_vuknRVOXvbDmuFdOenz1cSA
-        //AIzaSyCuLbEgu2BkGnKvcOlGL7_vfms0jq5WQlk
-        //AIzaSyBL9BKBBR5l9vl4PlH6UQ0mu26nYhtQNLY
-        //AIzaSyDYJ5HgZsS69C_bNe5_N-2NI0PB-hllnDU
         const CSE_ID = "b3595db64cc714862";
 
         function googleProductSearch(query, site, orTerms = "") {
@@ -272,11 +247,15 @@ async function searchProduct() {
         async function extractProductInfo(item) {
             const pagemap = item.pagemap || {};
             const link = item.link;
-            let title = null;
+            let title = item.title;
             let price = null;
             let image_url = null;
             let store_logo = null;
             let store_name = null;
+
+            if (!await isProductRelevant(title, product)) {
+                return null;
+            }
 
             if (link.startsWith("https://ksp")) {
                 store_name = "KSP";
@@ -381,6 +360,10 @@ async function searchProduct() {
                 [title, price, image_url] = getInfoFromPagemap(pagemap, "שופרסל");
 
             } else if (link.startsWith("https://365mashbir")) {
+                const available = await checkAvailability(link, "Mashbir");
+                if (!available) {
+                    return null;
+                }
                 store_name = "Mashbir";
                 store_logo = "https://365mashbir.co.il/cdn/shop/files/Artboard_1_copy_2.jpg";
                 [title, price, image_url] = getInfoFromPagemap(pagemap, "Mashbir");
@@ -398,37 +381,11 @@ async function searchProduct() {
         }
 
         try {
-            const [kspRating, payngoRating, anakshopRating, semicomRating, LastpriceRating, ivoryRating, amirimRating, hashmalnetoRating, shufersalRating, mashbirRating] = await Promise.all([
-                fetchStoreRating("ksp"),
-                fetchStoreRating("מחסני חשמל"),
-                fetchStoreRating("ענק המחשבים"),
-                fetchStoreRating("Semicom"),
-                fetchStoreRating("Lastprice"),
-                fetchStoreRating("ivory"),
-                fetchStoreRating("אמירים הפצה"),
-                fetchStoreRating("חשמל נטו"),
-                fetchStoreRating("שופרסל"),
-                fetchStoreRating("Mashbir")
-            ]);
-
-            const ratingMap = {
-                "KSP": kspRating,
-                "מחסני חשמל": payngoRating,
-                "ענק המחשבים": anakshopRating,
-                "Semicom": semicomRating,
-                "Lastprice": LastpriceRating,
-                "Ivory": ivoryRating,
-                "אמירים הפצה": amirimRating,
-                "חשמל נטו": hashmalnetoRating,
-                "שופרסל": shufersalRating,
-                "Mashbir": mashbirRating
-            };
-
             const results = await Promise.all([
                 googleProductSearch(product, "ksp.co.il"),
                 googleProductSearch(product, "www.payngo.co.il", "תיאור המוצר,תיאור מוצר"),
                 googleProductSearch(product, "www.anakshop.co.il/items/*"),
-                googleProductSearch(product, "www.semicom.co.il/*-*"),
+                googleProductSearch(product, "www.semicom.co.il/"),
                 googleProductSearch(product, "www.lastprice.co.il/p/*"),
                 googleProductSearch(product, "www.ivory.co.il/catalog.php?id=*"),
                 googleProductSearch(product, "www.adcs.co.il/"),
@@ -453,15 +410,20 @@ async function searchProduct() {
             const extractedData = await Promise.all(items.map(async item => {
                 const productInfo = await extractProductInfo(item);
                 if (productInfo !== null) {
-                    const storeRating = ratingMap[productInfo[4]];
-                    return [...productInfo, storeRating];
+                    return productInfo;
                 } else {
                     return null;
                 }
             }));
 
-            // const filteredData = extractedData.filter(item => item !== null);
-            const filteredData = await filterRelevantProducts(extractedData, product);
+            const filteredData = extractedData.filter(item => item !== null);
+
+            const storeNames = [...new Set(filteredData.map(item => item[4]))];
+            let ratingMap = {};
+            await Promise.all(storeNames.map(async storeName => {
+                ratingMap[storeName] = await fetchStoreRating(storeName);
+            }));
+
             const transformedResults = filteredData.map(item => ({
                 productName: item[0],
                 link: item[1],
@@ -469,12 +431,12 @@ async function searchProduct() {
                 image: item[3],
                 storeName: item[4],
                 logo: item[5],
-                rating: item[6]
+                rating: ratingMap[item[4]]
             }));
 
             const jsonResults = JSON.stringify(transformedResults);
             localStorage.setItem('searchResults', jsonResults); // Store results in localStorage
-            chrome.tabs.create({url: chrome.runtime.getURL('index.html')})
+            chrome.tabs.create({url: chrome.runtime.getURL('index.html')});
 
         } catch (error) {
             console.error('Error:', error);
@@ -485,3 +447,4 @@ async function searchProduct() {
         setButtonLoadingState(false);  // Reset button state if no product is entered
     }
 }
+
