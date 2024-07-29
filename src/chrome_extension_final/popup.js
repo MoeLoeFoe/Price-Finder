@@ -130,6 +130,9 @@ async function checkAvailability(link, store) {
     } else if (store === "Mashbir") {
         const outOfStockElement = doc.querySelector('span[class*="אזל מהמלאי"]');
         return !outOfStockElement;
+    } else if (store === "מחסני חשמל") {
+        const outOfStockElement = doc.querySelector('div.outOfStock');
+        return !(outOfStockElement && outOfStockElement.textContent.includes("אזל מהמלאי"));
     }
 }
 
@@ -139,7 +142,6 @@ async function fetchPriceFromHtml(link, store) {
         const htmlText = await response.text();
         const parser = new DOMParser();
         const doc = parser.parseFromString(htmlText, 'text/html');
-        const suffix = " ₪";
 
         if (store === "Ivory") {
             // Check for out-of-stock message
@@ -150,7 +152,7 @@ async function fetchPriceFromHtml(link, store) {
             const priceElement = doc.querySelector('span.print-actual-price');
             if (priceElement) {
                 const priceText = priceElement.textContent.trim();
-                const currencyText = "ILS";
+                const currencyText = "₪";
                 return `${priceText}${currencyText}`;
             }
             return null;
@@ -160,12 +162,19 @@ async function fetchPriceFromHtml(link, store) {
                 const priceText = priceElement.textContent.trim();
                 const priceMatch = priceText.match(/(\d[\d,.]*)\s*(₪)/);
                 if (priceMatch) {
-                    let price = priceMatch[0];
-                    if (price.endsWith(suffix)) {
-                        price = price.slice(0, -suffix.length) + "ILS";
-                    }
-                    return price;
+                    return priceMatch[0];
                 }
+            }
+            return null;
+        }
+        else if (store === "Bug") {
+            const addToCartElement = doc.querySelector('span[onclick^="addToCart"]');
+            if (!addToCartElement) {
+                return null;
+            }
+            const priceElement = doc.querySelector('div#product-price-container ins');
+            if (priceElement) {
+                return priceElement.textContent.trim();
             }
             return null;
         }
@@ -214,11 +223,25 @@ function getInfoFromPagemap(pagemap, site) {
             productName = product_p.name;
         }
     }
+    else if (site === "Bug") {
+        if (pagemap.cse_thumbnail) {
+            image_url = pagemap.cse_thumbnail[0]["src"];
+        }
+    }
 
     if (price && currency) {
         price = price + currency;
     }
     return [productName, price, image_url];
+}
+
+async function checkImageExistence(image_url) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+        img.src = image_url;
+    });
 }
 
 async function searchProduct() {
@@ -269,6 +292,10 @@ async function searchProduct() {
                 }
 
             } else if (link.startsWith("https://www.payngo")) {
+                const available = await checkAvailability(link, "מחסני חשמל");
+                if (!available) {
+                    return null;
+                }
                 store_name = "מחסני חשמל";
                 store_logo = "https://d2d22nphq0yz8t.cloudfront.net/6cbcadef-96e0-49e9-b3bd-9921afe362db/www.payngo.co.il/media/logo/stores/1/logo.png";
                 if (pagemap.metatags) {
@@ -299,24 +326,16 @@ async function searchProduct() {
                     image_url = metatag["og:image"];
                 }
 
-            } else if (link.startsWith("https://www.semicom")) {
-                store_name = "Semicom";
-                store_logo = "https://www.semicom.co.il/static/version1720584178/frontend/Betanet/semicom/he_IL/images/logo.svg";
-                if (pagemap.offer) {
-                    for (const offer of pagemap.offer) {
-                        price = await offer.price + offer.pricecurrency;
-                        if (price) break;
-                    }
-                }
-                if (pagemap.metatags) {
+            } else if (link.startsWith("https://www.bug")) {
+                store_name = "Bug";
+                store_logo = "https://www.bug.co.il/images/logoBug.png";
+                price = await fetchPriceFromHtml(link, "Bug");
+                if (pagemap.metatags){
                     const metatag = pagemap.metatags[0];
-                    image_url = metatag["og:image"];
+                    title = metatag['og:title'];
                 }
-                if (pagemap.product) {
-                    const product_p = pagemap.product[0];
-                    if (product_p.name) {
-                        title = product_p.name;
-                    }
+                if (pagemap.cse_thumbnail) {
+                    image_url = pagemap.cse_thumbnail[0]['src'];
                 }
 
             } else if (link.startsWith("https://www.lastprice")) {
@@ -344,6 +363,10 @@ async function searchProduct() {
                 store_name = "אמירים הפצה";
                 store_logo = "https://media.licdn.com/dms/image/C4D0BAQFCQkmpr7Ok1A/company-logo_200_200/0/1631315286863?e=2147483647&v=beta&t=YLytMbLhjWexg_88zSD2_5LRqCCIpH-hKPTOXfE7aWw";
                 [title, price, image_url] = getInfoFromPagemap(pagemap, "אמירים הפצה");
+                const isImageValid = await checkImageExistence(image_url);
+                if (!isImageValid) {
+                    image_url = null;
+                }
 
             } else if (link.startsWith("https://www.netoneto")) {
                 const available = await checkAvailability(link, "חשמל נטו");
@@ -377,7 +400,7 @@ async function searchProduct() {
                 return null;
             }
 
-            return [title, link, price, image_url, store_name, store_logo];
+            return [title, link, price.replace(/[,\s]/g, ''), image_url, store_name, store_logo];
         }
 
         try {
@@ -385,7 +408,7 @@ async function searchProduct() {
                 googleProductSearch(product, "ksp.co.il"),
                 googleProductSearch(product, "www.payngo.co.il", "תיאור המוצר,תיאור מוצר"),
                 googleProductSearch(product, "www.anakshop.co.il/items/*"),
-                googleProductSearch(product, "www.semicom.co.il/"),
+                googleProductSearch(product, "www.Bug.co.il/"),
                 googleProductSearch(product, "www.lastprice.co.il/p/*"),
                 googleProductSearch(product, "www.ivory.co.il/catalog.php?id=*"),
                 googleProductSearch(product, "www.adcs.co.il/"),
@@ -394,18 +417,18 @@ async function searchProduct() {
                 googleProductSearch(product, "365mashbir.co.il")
             ]);
 
-            const [productsKsp, productsPayngo, productsAnakshop, productsSemicom, productsLastprice, productsIvory, productsAmirim, productHashmalneto, productsShufersal, productsMashbir] = results;
+            const [productsKsp, productsPayngo, productsAnakshop, productsBug, productsLastprice, productsIvory, productsAmirim, productHashmalneto, productsShufersal, productsMashbir] = results;
             const itemsKsp = productsKsp.items || [];
             const itemsPayngo = productsPayngo.items || [];
             const itemsAnakshop = productsAnakshop.items || [];
-            const itemsSemicom = productsSemicom.items || [];
+            const itemsBug = productsBug.items || [];
             const itemsLastprice = productsLastprice.items || [];
             const itemsIvory = productsIvory.items || [];
             const itemsAmirim = productsAmirim.items || [];
             const itemsHashmalneto = productHashmalneto.items || [];
             const itemsShufersal = productsShufersal.items || [];
             const itemsMashbir = productsMashbir.items || [];
-            const items = [...itemsKsp, ...itemsPayngo, ...itemsAnakshop, ...itemsSemicom, ...itemsLastprice, ...itemsIvory, ...itemsAmirim, ...itemsHashmalneto, ...itemsShufersal, ...itemsMashbir];
+            const items = [...itemsKsp, ...itemsPayngo, ...itemsAnakshop, ...itemsBug, ...itemsLastprice, ...itemsIvory, ...itemsAmirim, ...itemsHashmalneto, ...itemsShufersal, ...itemsMashbir];
 
             const extractedData = await Promise.all(items.map(async item => {
                 const productInfo = await extractProductInfo(item);
@@ -447,4 +470,3 @@ async function searchProduct() {
         setButtonLoadingState(false);  // Reset button state if no product is entered
     }
 }
-
