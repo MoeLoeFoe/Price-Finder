@@ -22,11 +22,11 @@ function createApp() {
     appWrapper.style.display = 'flex';
     appWrapper.style.flexDirection = 'column';
     appWrapper.style.alignItems = 'center';
-    appWrapper.style.fontFamily = 'Monaco, Monospace';
-    appWrapper.style.fontSize = '22px';
+    appWrapper.style.fontFamily = 'Assistant, Arial, Monaco, Monospace';
+    appWrapper.style.fontSize = '16px';
 
     const header = document.createElement('header');
-    header.style.backgroundColor = '#6666ff';
+    header.style.backgroundColor = '#E2F6FF';
     header.style.padding = '10px';
     header.style.width = '100%';
     header.style.textAlign = 'center';
@@ -39,13 +39,12 @@ function createApp() {
 
     const logo = document.createElement('img');
     logo.src = './assets/easyCompare.png';
-    logo.style.width = '135px';
-    logo.style.height = '135px';
+    logo.style.width = '200px';
+    logo.style.height = '200px';
     logo.style.marginLeft = '700px';
 
     const title = document.createElement('h1');
-    title.textContent = 'easyCompare';
-    title.style.fontFamily = '\'Marcellus SC\', serif';
+    title.style.fontFamily = 'Assistant, Arial, Monaco, Monospace';
     title.style.fontSize = '3rem';
     title.style.marginRight = '700px';
     title.style.width = '100%';
@@ -59,15 +58,19 @@ function createApp() {
     appWrapper.appendChild(header);
 
     const main = document.createElement('main');
-    main.style.width = '80%';
-    main.style.marginTop = '20px';
+    main.style.width = '85%';
+    main.style.marginTop = '25px';
+
     appWrapper.appendChild(main);
 
     const sortContainer = document.createElement('div');
+    sortContainer.classList.add('sort-container');
 
     const sortByPriceButton = document.createElement('button');
     sortByPriceButton.textContent = 'Sort by Price';
-    sortByPriceButton.style.backgroundColor = '#6666ff';
+    sortByPriceButton.style.fontFamily = 'Assistant, Arial, Monaco, Monospace';
+    sortByPriceButton.style.fontSize = '16px';
+    sortByPriceButton.style.backgroundColor = '#009DE6';
     sortByPriceButton.style.color = 'white';
     sortByPriceButton.style.border = 'none';
     sortByPriceButton.style.padding = '10px 20px';
@@ -79,7 +82,9 @@ function createApp() {
 
     const sortByRatingButton = document.createElement('button');
     sortByRatingButton.textContent = 'Sort by Rating';
-    sortByRatingButton.style.backgroundColor = '#6666ff';
+    sortByRatingButton.style.fontFamily = 'Assistant, Arial, Monaco, Monospace';
+    sortByRatingButton.style.fontSize = '16px';
+    sortByRatingButton.style.backgroundColor = '#009DE6';
     sortByRatingButton.style.color = 'white';
     sortByRatingButton.style.border = 'none';
     sortByRatingButton.style.padding = '10px 20px';
@@ -91,7 +96,9 @@ function createApp() {
 
     const sortByCombinedButton = document.createElement('button');
     sortByCombinedButton.textContent = 'Sort by Combined Score';
-    sortByCombinedButton.style.backgroundColor = '#6666ff';
+    sortByCombinedButton.style.fontFamily = 'Assistant, Arial, Monaco, Monospace';
+    sortByCombinedButton.style.fontSize = '16px';
+    sortByCombinedButton.style.backgroundColor = '#009DE6';
     sortByCombinedButton.style.color = 'white';
     sortByCombinedButton.style.border = 'none';
     sortByCombinedButton.style.padding = '10px 20px';
@@ -124,7 +131,7 @@ function createApp() {
     const headerRow = document.createElement('tr');
     thead.appendChild(headerRow);
 
-    const headers = ['', 'Price ₪', 'Description', 'Store', '', 'Rating', '', ''];
+    const headers = ['', 'Price', 'Description', 'Store', 'Rating', ''];
     headers.forEach(headerText => {
         const th = document.createElement('th');
         th.textContent = headerText;
@@ -161,10 +168,11 @@ function createApp() {
             row.appendChild(tdImage);
 
             const tdPrice = document.createElement('td');
-            tdPrice.textContent = item.price.replace('ILS', '₪');
+            tdPrice.textContent = item.price.replace('ILS', '₪').replace('NIS', '₪');
             tdPrice.style.whiteSpace = 'nowrap';
             tdPrice.style.width = '100px';
             row.appendChild(tdPrice);
+
 
             const tdDescription = document.createElement('td');
             tdDescription.textContent = item.productName;
@@ -174,9 +182,6 @@ function createApp() {
             tdDescription.style.textOverflow = 'ellipsis';
             row.appendChild(tdDescription);
 
-            const tdStore = document.createElement('td');
-            tdStore.textContent = item.storeName;
-            row.appendChild(tdStore);
 
             const tdStoreLogo = document.createElement('td');
             if (item.logo) {
@@ -196,7 +201,8 @@ function createApp() {
             const tdStoreButton = document.createElement('td');
             const storeButton = document.createElement('button');
             storeButton.textContent = 'Go to Store';
-            storeButton.style.backgroundColor = '#6666ff';
+            storeButton.style.fontFamily = 'Assistant, Arial, sans-serif';
+            storeButton.style.backgroundColor = '#009DE6';
             storeButton.style.color = 'white';
             storeButton.style.border = 'none';
             storeButton.style.padding = '10px 20px';
@@ -209,13 +215,13 @@ function createApp() {
             storeButton.style.borderRadius = '8px';
             storeButton.style.transition = 'background-color 0.3s ease';
             storeButton.addEventListener('click', () => {
-                window.location.href = item.link;
+                chrome.tabs.create({url: (item.link)});
             });
             storeButton.addEventListener('mouseover', () => {
                 storeButton.style.backgroundColor = '#0056b3';
             });
             storeButton.addEventListener('mouseout', () => {
-                storeButton.style.backgroundColor = '#6666ff';
+                storeButton.style.backgroundColor = '#009DE6';
             });
             tdStoreButton.appendChild(storeButton);
             row.appendChild(tdStoreButton);
