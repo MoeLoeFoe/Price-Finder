@@ -13,9 +13,30 @@ function createStarRating(rating) {
         star.innerHTML = '&#9733;';
         starWrapper.appendChild(star);
     }
-
     return starWrapper;
 }
+
+function createSearchButton(productName) {
+    const button = document.createElement('button');
+    button.textContent = 'Search Product';
+    button.className = 'search-product-button';
+
+    button.addEventListener('click', async () => {
+        button.textContent = 'Loading Results...';
+        button.disabled = true;
+        document.querySelectorAll('button').forEach(btn => btn.disabled = true);
+
+        await searchProduct(productName, false);
+
+        button.textContent = 'Search Product';
+        button.disabled = false;
+        document.querySelectorAll('button').forEach(btn => btn.disabled = false);
+    });
+
+    return button;
+}
+
+let currentSortCriteria = 'combined'; // Default sorting criteria
 
 function createApp() {
     const appWrapper = document.createElement('div');
@@ -66,69 +87,118 @@ function createApp() {
     const sortContainer = document.createElement('div');
     sortContainer.classList.add('sort-container');
 
-    const sortByPriceButton = document.createElement('button');
-    sortByPriceButton.textContent = 'Sort by Price';
-    sortByPriceButton.style.fontFamily = 'Assistant, Arial, Monaco, Monospace';
-    sortByPriceButton.style.fontSize = '16px';
-    sortByPriceButton.style.backgroundColor = '#009DE6';
-    sortByPriceButton.style.color = 'white';
-    sortByPriceButton.style.border = 'none';
-    sortByPriceButton.style.padding = '10px 20px';
-    sortByPriceButton.style.margin = '4px 2px';
-    sortByPriceButton.style.cursor = 'pointer';
-    sortByPriceButton.style.borderRadius = '8px';
-    sortByPriceButton.style.transition = 'background-color 0.3s ease';
-    sortByPriceButton.addEventListener('click', () => sortProducts('price'));
-    sortByPriceButton.addEventListener('mouseover', () => {
-        sortByPriceButton.style.backgroundColor = '#0070A4';
-    });
-    sortByPriceButton.addEventListener('mouseout', () => {
-        sortByPriceButton.style.backgroundColor = '#009DE6';
-    });
+    const sortByLabel = document.createElement('span');
+    sortByLabel.textContent = 'Sort by:';
+    sortByLabel.style.marginRight = '10px';
+    sortByLabel.style.fontFamily = 'Assistant, Arial, Monaco, Monospace';
+    sortByLabel.style.fontSize = '16px';
+    sortContainer.appendChild(sortByLabel);
+
+    // Create the dropdown for sorting
+    const dropdown = document.createElement('div');
+    dropdown.className = 'dropdown';
+    const dropdownButton = document.createElement('button');
+    dropdownButton.textContent = 'Combined Score (low price and high rating)';
+    dropdownButton.style.fontSize = '16px';
+    dropdownButton.style.backgroundColor = 'white';
+    dropdownButton.style.color = 'black';
+    dropdownButton.style.border = '1px solid #ccc';
+    dropdownButton.style.padding = '5px 10px';
+    dropdownButton.style.cursor = 'pointer';
+    dropdownButton.style.borderRadius = '8px';
+    dropdownButton.style.transition = 'background-color 0.3s ease';
+    dropdown.appendChild(dropdownButton);
+
+    const dropdownContent = document.createElement('div');
+    dropdownContent.className = 'dropdown-content';
+    const sortByPriceAscButton = document.createElement('button');
+    sortByPriceAscButton.textContent = 'Price (low to high)';
+    sortByPriceAscButton.addEventListener('click', () => sortProducts('priceAsc', dropdownButton));
+
+    const sortByPriceDescButton = document.createElement('button');
+    sortByPriceDescButton.textContent = 'Price (high to low)';
+    sortByPriceDescButton.addEventListener('click', () => sortProducts('priceDesc', dropdownButton));
 
     const sortByRatingButton = document.createElement('button');
-    sortByRatingButton.textContent = 'Sort by Rating';
-    sortByRatingButton.style.fontFamily = 'Assistant, Arial, Monaco, Monospace';
-    sortByRatingButton.style.fontSize = '16px';
-    sortByRatingButton.style.backgroundColor = '#009DE6';
-    sortByRatingButton.style.color = 'white';
-    sortByRatingButton.style.border = 'none';
-    sortByRatingButton.style.padding = '10px 20px';
-    sortByRatingButton.style.margin = '4px 2px';
-    sortByRatingButton.style.cursor = 'pointer';
-    sortByRatingButton.style.borderRadius = '8px';
-    sortByRatingButton.style.transition = 'background-color 0.3s ease';
-    sortByRatingButton.addEventListener('click', () => sortProducts('rating'));
-    sortByRatingButton.addEventListener('mouseover', () => {
-        sortByRatingButton.style.backgroundColor = '#0070A4';
-    });
-    sortByRatingButton.addEventListener('mouseout', () => {
-        sortByRatingButton.style.backgroundColor = '#009DE6';
-    });
+    sortByRatingButton.textContent = 'Rating (high to low)';
+    sortByRatingButton.addEventListener('click', () => sortProducts('rating', dropdownButton));
 
     const sortByCombinedButton = document.createElement('button');
-    sortByCombinedButton.textContent = 'Sort by Combined Score';
-    sortByCombinedButton.style.fontFamily = 'Assistant, Arial, Monaco, Monospace';
-    sortByCombinedButton.style.fontSize = '16px';
-    sortByCombinedButton.style.backgroundColor = '#009DE6';
-    sortByCombinedButton.style.color = 'white';
-    sortByCombinedButton.style.border = 'none';
-    sortByCombinedButton.style.padding = '10px 20px';
-    sortByCombinedButton.style.margin = '4px 2px';
-    sortByCombinedButton.style.cursor = 'pointer';
-    sortByCombinedButton.style.borderRadius = '8px';
-    sortByCombinedButton.style.transition = 'background-color 0.3s ease';
-    sortByCombinedButton.addEventListener('click', () => sortProducts('combined'));
-    sortByCombinedButton.addEventListener('mouseover', () => {
-        sortByCombinedButton.style.backgroundColor = '#0070A4';
+    sortByCombinedButton.textContent = 'Combined Score (low price and high rating)';
+    sortByCombinedButton.addEventListener('click', () => sortProducts('combined', dropdownButton));
+
+    dropdownContent.appendChild(sortByPriceAscButton);
+    dropdownContent.appendChild(sortByPriceDescButton);
+    dropdownContent.appendChild(sortByRatingButton);
+    dropdownContent.appendChild(sortByCombinedButton);
+    dropdown.appendChild(dropdownContent);
+    sortContainer.appendChild(dropdown);
+
+    const priceFilterContainer = document.createElement('div');
+    priceFilterContainer.style.marginTop = '20px';
+
+    const minPriceInput = document.createElement('input');
+    minPriceInput.type = 'number';
+    minPriceInput.placeholder = 'Min Price';
+    minPriceInput.style.marginRight = '10px';
+
+    const maxPriceInput = document.createElement('input');
+    maxPriceInput.type = 'number';
+    maxPriceInput.placeholder = 'Max Price';
+    maxPriceInput.style.marginRight = '10px';
+
+    const filterButton = document.createElement('button');
+    filterButton.textContent = 'Filter by Price';
+    filterButton.className = 'filter-button';
+    filterButton.style.fontFamily = 'Assistant, Arial, Monaco, Monospace';
+    filterButton.style.fontSize = '14px';
+    filterButton.style.backgroundColor = '#009DE6';
+    filterButton.style.color = 'white';
+    filterButton.style.border = 'none';
+    filterButton.style.padding = '2px 10px';
+    filterButton.style.cursor = 'pointer';
+    filterButton.style.borderRadius = '8px';
+    filterButton.style.transition = 'background-color 0.3s ease';
+    filterButton.addEventListener('mouseover', () => {
+        filterButton.style.backgroundColor = '#0070A4';
     });
-    sortByCombinedButton.addEventListener('mouseout', () => {
-        sortByCombinedButton.style.backgroundColor = '#009DE6';
+    filterButton.addEventListener('mouseout', () => {
+        filterButton.style.backgroundColor = '#009DE6';
+    });
+    filterButton.addEventListener('click', () => filterByPrice(minPriceInput.value, maxPriceInput.value));
+
+    const removeFilterButton = document.createElement('button');
+    removeFilterButton.textContent = 'Remove Filter';
+    removeFilterButton.style.fontFamily = 'Assistant, Arial, Monaco, Monospace';
+    removeFilterButton.style.fontSize = '14px';
+    removeFilterButton.style.backgroundColor = '#FF5733';
+    removeFilterButton.style.color = 'white';
+    removeFilterButton.style.border = 'none';
+    removeFilterButton.style.padding = '2px 10px';
+    removeFilterButton.style.cursor = 'pointer';
+    removeFilterButton.style.borderRadius = '8px';
+    removeFilterButton.style.transition = 'background-color 0.3s ease';
+    removeFilterButton.style.marginLeft = '10px';
+    removeFilterButton.addEventListener('mouseover', () => {
+        removeFilterButton.style.backgroundColor = '#D52626';
+    });
+    removeFilterButton.addEventListener('mouseout', () => {
+        removeFilterButton.style.backgroundColor = '#FF5733';
+    });
+    removeFilterButton.addEventListener('click', () => {
+        const originalResults = localStorage.getItem("originalResults");
+        if (originalResults) {
+            localStorage.setItem('searchResults', originalResults);
+            sortProducts(currentSortCriteria, dropdownButton); // Reapply current sorting
+        }
     });
 
-    sortContainer.appendChild(sortByPriceButton);
-    sortContainer.appendChild(sortByRatingButton);
-    sortContainer.appendChild(sortByCombinedButton);
+    priceFilterContainer.appendChild(minPriceInput);
+    priceFilterContainer.appendChild(maxPriceInput);
+    priceFilterContainer.appendChild(filterButton);
+    priceFilterContainer.appendChild(removeFilterButton);
+
+    sortContainer.appendChild(priceFilterContainer);
 
     main.appendChild(sortContainer);
 
@@ -149,7 +219,7 @@ function createApp() {
     const headerRow = document.createElement('tr');
     thead.appendChild(headerRow);
 
-    const headers = ['', 'Price', 'Description', 'Store', 'Rating', ''];
+    const headers = ['', 'Price', 'Description', 'Store', 'Store Rating', '',''];
     headers.forEach(headerText => {
         const th = document.createElement('th');
         th.textContent = headerText;
@@ -163,12 +233,93 @@ function createApp() {
     const tbody = document.createElement('tbody');
     table.appendChild(tbody);
 
+    document.body.appendChild(appWrapper);
+
+    performSearch();
+}
+
+function filterByPrice(minPrice, maxPrice) {
+    const results = localStorage.getItem("originalResults");
+    if (!results) return;
+
+    const data = JSON.parse(results);
+    const filteredProducts = data.filter(item => {
+        const price = parseFloat(item.price.replace(/[^\d.-]/g, ''));
+        return (!minPrice || price >= minPrice) && (!maxPrice || price <= maxPrice);
+    });
+
+    localStorage.setItem('searchResults', JSON.stringify(filteredProducts));
+    sortProducts(currentSortCriteria, null); // Reapply current sorting
+}
+
+function normalize(value, min, max) {
+    return (value - min) / (max - min);
+}
+
+function calculateCombinedScore(price, rating, minPrice, maxPrice, minRating, maxRating) {
+    const normalizedPrice = normalize(price, minPrice, maxPrice);
+    const normalizedRating = normalize(rating, minRating, maxRating);
+    return normalizedRating - normalizedPrice;
+}
+
+function sortProducts(criteria, dropdownButton) {
+    currentSortCriteria = criteria; // Update current sort criteria
+
+    const results = localStorage.getItem('searchResults');
+    if (!results) return;
+
+    const data = JSON.parse(results);
+    const prices = data.map(item => parseFloat(item.price.replace(/[^\d.-]/g, '')));
+    const ratings = data.map(item => parseFloat(item.rating));
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+    const minRating = Math.min(...ratings);
+    const maxRating = Math.max(...ratings);
+
+    const sortedProducts = [...data].sort((a, b) => {
+        const priceA = parseFloat(a.price.replace(/[^\d.-]/g, ''));
+        const priceB = parseFloat(b.price.replace(/[^\d.-]/g, ''));
+        const rateA = parseFloat(a.rating);
+        const rateB = parseFloat(b.rating);
+
+        if (criteria === 'priceAsc') {
+            return priceA - priceB;
+        } else if (criteria === 'priceDesc') {
+            return priceB - priceA;
+        } else if (criteria === 'rating') {
+            return rateB - rateA;
+        } else if (criteria === 'combined') {
+            const scoreA = calculateCombinedScore(priceA, rateA, minPrice, maxPrice, minRating, maxRating);
+            const scoreB = calculateCombinedScore(priceB, rateB, minPrice, maxPrice, minRating, maxRating);
+            return scoreB - scoreA;
+        }
+        return 0; // default return if no sorting criteria matches
+    });
+
+    localStorage.setItem('searchResults', JSON.stringify(sortedProducts));
+    if (dropdownButton) {
+        dropdownButton.textContent = {
+            'priceAsc': 'Price (low to high)',
+            'priceDesc': 'Price (high to low)',
+            'rating': 'Rating (high to low)',
+            'combined': 'Combined Score (low price and high rating)'
+        }[criteria];
+    }
+
+    renderProducts();
+}
+
+function renderProducts() {
+    const section = document.getElementById('search-results');
+    const table = section.querySelector('table');
+    const tbody = table.querySelector('tbody');
+    tbody.innerHTML = ''; // Clear existing rows
+
     const results = localStorage.getItem('searchResults');
     if (results) {
         const sortedProducts = JSON.parse(results);
         sortedProducts.forEach(item => {
             const row = document.createElement('tr');
-            row.style.cursor = 'pointer';
             row.addEventListener('mouseover', () => {
                 row.style.backgroundColor = '#f5f5f5';
             });
@@ -191,7 +342,6 @@ function createApp() {
             tdPrice.style.width = '100px';
             row.appendChild(tdPrice);
 
-
             const tdDescription = document.createElement('td');
             tdDescription.textContent = item.productName;
             tdDescription.style.maxWidth = '500px';
@@ -199,7 +349,6 @@ function createApp() {
             tdDescription.style.overflow = 'hidden';
             tdDescription.style.textOverflow = 'ellipsis';
             row.appendChild(tdDescription);
-
 
             const tdStoreLogo = document.createElement('td');
             if (item.logo) {
@@ -233,7 +382,7 @@ function createApp() {
             storeButton.style.borderRadius = '8px';
             storeButton.style.transition = 'background-color 0.3s ease';
             storeButton.addEventListener('click', () => {
-                chrome.tabs.create({url: (item.link)});
+                chrome.tabs.create({ url: (item.link) });
             });
             storeButton.addEventListener('mouseover', () => {
                 storeButton.style.backgroundColor = '#0070A4';
@@ -244,6 +393,9 @@ function createApp() {
             tdStoreButton.appendChild(storeButton);
             row.appendChild(tdStoreButton);
 
+            const tdSearchButton = document.createElement('td');
+            row.appendChild(tdSearchButton);
+
             tbody.appendChild(row);
         });
     } else {
@@ -251,52 +403,80 @@ function createApp() {
         noResultsMessage.textContent = 'No search results found.';
         section.appendChild(noResultsMessage);
     }
-
-    document.body.appendChild(appWrapper);
 }
 
-function normalize(value, min, max) {
-    return (value - min) / (max - min);
-}
+function createSimilarProductsSection() {
+    const similarProductsResult = localStorage.getItem('similarProductsResult');
+    if (!similarProductsResult) return;
 
-function calculateCombinedScore(price, rating, minPrice, maxPrice, minRating, maxRating) {
-    const normalizedPrice = normalize(price, minPrice, maxPrice);
-    const normalizedRating = normalize(rating, minRating, maxRating);
-    return normalizedRating - normalizedPrice;
-}
+    const similarProducts = JSON.parse(similarProductsResult);
+    if (similarProducts.length === 0) return;
 
-function sortProducts(criteria) {
-    const results = localStorage.getItem('searchResults');
-    if (!results) return;
+    const similarProductsSection = document.createElement('section');
+    similarProductsSection.id = 'similar-products';
+    similarProductsSection.style.width = '100%';
+    similarProductsSection.style.marginTop = '60px';
 
-    const data = JSON.parse(results);
-    const prices = data.map(item => parseFloat(item.price.replace(/[^\d.-]/g, '')));
-    const ratings = data.map(item => parseFloat(item.rating));
-    const minPrice = Math.min(...prices);
-    const maxPrice = Math.max(...prices);
-    const minRating = Math.min(...ratings);
-    const maxRating = Math.max(...ratings);
+    const similarProductsTitle = document.createElement('h2');
+    similarProductsTitle.textContent = 'Similar Products';
+    similarProductsTitle.style.textAlign = 'center';
+    similarProductsSection.appendChild(similarProductsTitle);
 
-    const sortedProducts = [...data].sort((a, b) => {
-        const priceA = parseFloat(a.price.replace(/[^\d.-]/g, ''));
-        const priceB = parseFloat(b.price.replace(/[^\d.-]/g, ''));
-        const rateA = parseFloat(a.rating);
-        const rateB = parseFloat(b.rating);
+    const similarProductsContainer = document.createElement('div');
+    similarProductsContainer.style.display = 'flex';
+    similarProductsContainer.style.flexWrap = 'wrap';
+    similarProductsContainer.style.justifyContent = 'center';
+    similarProductsSection.appendChild(similarProductsContainer);
 
-        if (criteria === 'price') {
-            return priceA - priceB;
-        } else if (criteria === 'rating') {
-            return rateB - rateA;
-        } else if (criteria === 'combined') {
-            const scoreA = calculateCombinedScore(priceA, rateA, minPrice, maxPrice, minRating, maxRating);
-            const scoreB = calculateCombinedScore(priceB, rateB, minPrice, maxPrice, minRating, maxRating);
-            return scoreB - scoreA;
-        }
-        return 0; // default return if no sorting criteria matches
+    similarProducts.forEach(product => {
+        const productCard = document.createElement('div');
+        productCard.style.border = '1px solid #ddd';
+        productCard.style.borderRadius = '8px';
+        productCard.style.padding = '10px';
+        productCard.style.margin = '10px';
+        productCard.style.width = '160px'; // Increased width
+        productCard.style.textAlign = 'center';
+
+        const productImage = document.createElement('img');
+        productImage.src = product.image;
+        productImage.style.width = '140px'; // Increased width
+        productImage.style.height = '140px'; // Increased height
+        productImage.style.objectFit = 'contain';
+        productCard.appendChild(productImage);
+
+        const productName = document.createElement('p');
+        productName.textContent = product.productName;
+        productName.style.fontSize = '14px';
+        productName.style.marginTop = '10px'; // Add margin to separate the text from the image
+        productCard.appendChild(productName);
+
+        const searchButton = createSearchButton(product.productName);
+        productCard.appendChild(searchButton);
+
+        similarProductsContainer.appendChild(productCard);
     });
 
-    localStorage.setItem('searchResults', JSON.stringify(sortedProducts));
-    location.reload();
+    document.querySelector('main').appendChild(similarProductsSection);
 }
 
-document.addEventListener('DOMContentLoaded', createApp);
+function performSearch(searchTerm = '') {
+    const originalResults = localStorage.getItem("originalResults");
+    if (!originalResults) return;
+
+    const data = JSON.parse(originalResults);
+    let searchResults;
+
+    if (searchTerm) {
+        searchResults = data.filter(item => item.productName.toLowerCase().includes(searchTerm.toLowerCase()));
+    } else {
+        searchResults = data;
+    }
+
+    localStorage.setItem('searchResults', JSON.stringify(searchResults));
+    sortProducts(currentSortCriteria, null); // Reapply current sorting
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    createApp();
+    createSimilarProductsSection();
+});
